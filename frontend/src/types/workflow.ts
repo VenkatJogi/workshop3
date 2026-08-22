@@ -9,6 +9,7 @@ export interface WorkflowStatus {
   data_summary?:any; plan?:any; critic_review?:any; revision_history:Revision[]; unresolved_issues:string[];
 }
 export interface ProductDecision { product_id:string; product_name:string; priority:string; recommended_action:string; reasoning:string; supporting_evidence:string[]; risks:string[]; estimated_business_impact:string }
+export interface AnswerItem { title:string; value:string; evidence:string }
 export interface ActionItem { priority:string; action:string; owner?:string; timeline:string; expected_outcome:string }
-export interface FinalResult { workflow_id:string; status:string; decision:{executive_summary:string;product_decisions:ProductDecision[];overall_strategy:string;key_tradeoffs:string[];confidence_score:number}; critic_review:any; action_plan?:{immediate_actions:ActionItem[];short_term_actions:ActionItem[];monitoring_actions:ActionItem[];business_summary:string}; revision_count:number; unresolved_issues:string[] }
+export interface FinalResult { workflow_id:string; status:string; decision:{direct_answer:string;answer_items:AnswerItem[];show_product_decisions:boolean;show_action_plan:boolean;executive_summary:string;product_decisions:ProductDecision[];overall_strategy:string;key_tradeoffs:string[];confidence_score:number}; critic_review:any; action_plan?:{immediate_actions:ActionItem[];short_term_actions:ActionItem[];monitoring_actions:ActionItem[];business_summary:string}; revision_count:number; unresolved_issues:string[] }
 export interface WorkflowForm { business_objective:string; demo_conflict_mode:boolean; useSample:boolean; inventory?:File; orders?:File; suppliers?:File }

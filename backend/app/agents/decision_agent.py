@@ -1,8 +1,34 @@
 import json
+import re
 
 from app.agents.base_agent import BaseAgent
-from app.models.agent_outputs import DecisionOutput, ProductDecision
+from app.models.agent_outputs import AnswerItem, DecisionOutput, ProductDecision
 from app.prompts.decision import SYSTEM_INSTRUCTION
+
+
+def ground_cited_orders(output: DecisionOutput, state) -> DecisionOutput:
+    text = " ".join([output.direct_answer, *(f"{item.title} {item.value} {item.evidence}" for item in output.answer_items)])
+    cited = list(dict.fromkeys(re.findall(r"\bORD\d+\b", text.upper())))
+    if not cited:
+        return output
+    source = {str(item["order_id"]).upper(): item for item in state.orders_data}
+    risk = {str(item["order_id"]).upper(): item for item in (state.orders_analysis or {}).get("orders_at_risk", [])}
+    grounded = []
+    for order_id in cited:
+        row = source.get(order_id)
+        if not row:
+            continue
+        risk_row = risk.get(order_id)
+        risk_text = risk_row["risk_level"] if risk_row else "NOT FLAGGED"
+        reason = risk_row["reason"] if risk_row else "No calculated fulfillment risk was flagged."
+        grounded.append(AnswerItem(
+            title=str(row["customer"]),
+            value=f"{order_id} · {row['product_name']} · {float(row['quantity']):g} units",
+            evidence=f"Order priority: {str(row['priority']).upper()}; fulfillment risk: {risk_text}. {reason}",
+        ))
+    if grounded:
+        output.answer_items = grounded
+    return output
 
 
 class DecisionAgent(BaseAgent):
@@ -40,6 +66,8 @@ class DecisionAgent(BaseAgent):
             ))
         affected = [item for item in decisions if item.recommended_action != "NO_ACTION_REQUIRED"]
         baseline = DecisionOutput(
+            direct_answer=f"{len(affected)} products require replenishment action to protect customer fulfillment.",
+            answer_items=[], show_product_decisions=True, show_action_plan=True,
             executive_summary=f"{len(affected)} products require replenishment action to protect customer fulfillment.",
             product_decisions=decisions,
             overall_strategy="Protect high-priority demand with minimal emergency purchasing, then restore stock through regular suppliers.",
@@ -57,8 +85,9 @@ class DecisionAgent(BaseAgent):
             "cost_analysis": state.cost_analysis,
             "deterministic_baseline": baseline.model_dump(),
         }
-        return await self.gemini_service.generate_structured(
+        live_output = await self.gemini_service.generate_structured(
             SYSTEM_INSTRUCTION,
-            "Interpret the deterministic evidence below. Keep every product, preserve all supplied quantities and costs, and return the strongest operational recommendation.\n" + json.dumps(context, default=str),
+            "Answer business_objective directly in direct_answer. Select only evidence relevant to that question for answer_items. Set show_product_decisions and show_action_plan based on relevance, not availability. Interpret the deterministic evidence below and keep every stated value accurate. Order priority and calculated risk_level are separate fields; filter using the field actually requested.\n" + json.dumps(context, default=str),
             DecisionOutput,
         )
+        return ground_cited_orders(live_output, state)

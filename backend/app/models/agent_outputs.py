@@ -33,10 +33,11 @@ class InventoryOutput(BaseModel):
     key_findings: list[str]; confidence_score: float = Field(ge=0, le=1)
 
 class OrderRisk(BaseModel):
-    order_id: str; product_id: str; product_name: str; quantity: float; priority: str
+    order_id: str; customer: str; product_id: str; product_name: str; quantity: float; priority: str
     risk_level: Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"]; reason: str
 class OrdersOutput(BaseModel):
     total_pending_orders: int; high_priority_orders: int; orders_at_risk: list[OrderRisk]
+    high_priority_orders_at_risk: list[OrderRisk]
     product_demand_summary: list[dict]; key_findings: list[str]; confidence_score: float = Field(ge=0, le=1)
 
 class DemandForecast(BaseModel):
@@ -68,7 +69,10 @@ class ProductDecision(BaseModel):
     product_id: str; product_name: str; priority: Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"]
     recommended_action: str; reasoning: str; supporting_evidence: list[str]
     risks: list[str]; assumptions: list[str]; estimated_business_impact: str
+class AnswerItem(BaseModel):
+    title: str; value: str; evidence: str
 class DecisionOutput(BaseModel):
+    direct_answer: str; answer_items: list[AnswerItem]; show_product_decisions: bool; show_action_plan: bool
     executive_summary: str; product_decisions: list[ProductDecision]; overall_strategy: str
     key_tradeoffs: list[str]; unresolved_questions: list[str]; confidence_score: float = Field(ge=0, le=1)
 
